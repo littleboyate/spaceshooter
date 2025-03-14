@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter Fullscreen</title>
+    <title>Space Shooter Leaderboard</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -22,18 +22,17 @@
         const game = new Phaser.Game(config);
 
         function GameScene() {
-            let player, cursors, bullets, enemies, enemyBullets, powerups, boss;
+            let player, cursors, bullets, enemies, enemyBullets, boss;
             let lastFired = 0, enemyFireTime = 0;
-            let level = 1, score = 0, timeLeft = 15, timerText;
-            let scoreText, bossHealth = 20, bossAlive = false;
-            let background;
+            let level = 1, score = 0, timeLeft = 15;
+            let scoreText, timerText, bossHealth = 20, bossAlive = false;
+            let background, leaderboard = [];
 
             this.preload = function() {
                 this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); 
                 this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
                 this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
                 this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
-                this.load.image("powerup", "https://i.imgur.com/7ZR4ciT.png");
                 this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png");
                 this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg");
             };
@@ -45,10 +44,9 @@
                 player.setCollideWorldBounds(true);
 
                 cursors = this.input.keyboard.createCursorKeys();
-                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 10 });
+                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 5 });
                 enemies = this.physics.add.group();
                 enemyBullets = this.physics.add.group();
-                powerups = this.physics.add.group();
 
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
                 timerText = this.add.text(10, 40, "Time: 15", { fontSize: "24px", fill: "#fff" });
@@ -58,7 +56,6 @@
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(enemyBullets, player, this.hitPlayer, null, this);
-                this.physics.add.overlap(player, powerups, this.collectPowerup, null, this);
 
                 this.scale.startFullscreen();
             };
@@ -87,11 +84,12 @@
             };
 
             this.spawnEnemies = function() {
-                for (let i = 0; i < 5; i++) {
-                    let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
-                    enemy.setVelocityY(50);
+                if (level < 3) {
+                    for (let i = 0; i < 5; i++) {
+                        let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
+                        enemy.setVelocityY(50);
+                    }
                 }
-                this.time.addEvent({ delay: 2000, callback: this.spawnEnemies, callbackScope: this, loop: true });
             };
 
             this.nextLevel = function() {
@@ -124,7 +122,7 @@
                 if (bossHealth <= 0) {
                     boss.destroy();
                     bossAlive = false;
-                    this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2, "You Win!", { fontSize: "40px", fill: "#fff" });
+                    this.endGame();
                 }
             };
 
@@ -133,17 +131,6 @@
                 enemy.destroy();
                 score += 10;
                 scoreText.setText("Score: " + score);
-                if (Math.random() > 0.8) this.spawnPowerup(enemy.x, enemy.y);
-            };
-
-            this.spawnPowerup = function(x, y) {
-                let powerup = powerups.create(x, y, "powerup");
-                powerup.setVelocityY(100);
-            };
-
-            this.collectPowerup = function(player, powerup) {
-                powerup.destroy();
-                bullets.maxSize += 5;
             };
 
             this.hitPlayer = function(player, bullet) {
@@ -155,6 +142,28 @@
             this.updateTimer = function() {
                 timeLeft--;
                 timerText.setText("Time: " + timeLeft);
+            };
+
+            this.endGame = function() {
+                this.physics.pause();
+                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
+                
+                this.updateLeaderboard();
+            };
+
+            this.updateLeaderboard = function() {
+                leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+                leaderboard.push(score);
+                leaderboard.sort((a, b) => b - a);
+                leaderboard = leaderboard.slice(0, 5);
+                localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+
+                let leaderboardText = "Leaderboard:\n";
+                leaderboard.forEach((s, i) => {
+                    leaderboardText += `${i + 1}. ${s} points\n`;
+                });
+
+                this.add.text(window.innerWidth / 2 - 150, window.innerHeight / 2 + 50, leaderboardText, { fontSize: "20px", fill: "#fff" });
             };
         }
     </script>
