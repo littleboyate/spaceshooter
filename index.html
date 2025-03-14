@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter with Score & Background</title>
+    <title>Space Shooter Fullscreen</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
     <script>
         const config = {
             type: Phaser.AUTO,
-            width: 800,
-            height: 600,
+            width: window.innerWidth,
+            height: window.innerHeight,
             scene: [GameScene],
             physics: {
                 default: "arcade",
@@ -22,97 +22,116 @@
         const game = new Phaser.Game(config);
 
         function GameScene() {
-            let player, cursors, bullets, enemies, powerups, boss;
-            let lastFired = 0;
-            let level = 1;
-            let score = 0;
-            let scoreText;
-            let bossHealth = 20;
-            let bossAlive = false;
+            let player, cursors, bullets, enemies, enemyBullets, powerups, boss;
+            let lastFired = 0, enemyFireTime = 0;
+            let level = 1, score = 0, timeLeft = 15, timerText;
+            let scoreText, bossHealth = 20, bossAlive = false;
             let background;
 
             this.preload = function() {
-                this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); // เปลี่ยนเป็นรูปจรวด
+                this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); 
                 this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
                 this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
                 this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
                 this.load.image("powerup", "https://i.imgur.com/7ZR4ciT.png");
-                this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg"); // พื้นหลังอวกาศ
+                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png");
+                this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg");
             };
 
             this.create = function() {
-                background = this.add.tileSprite(400, 300, 800, 600, "background");
+                background = this.add.tileSprite(window.innerWidth / 2, window.innerHeight / 2, window.innerWidth, window.innerHeight, "background");
 
-                player = this.physics.add.sprite(400, 500, "player").setScale(0.5);
+                player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
                 player.setCollideWorldBounds(true);
 
                 cursors = this.input.keyboard.createCursorKeys();
                 bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 10 });
                 enemies = this.physics.add.group();
+                enemyBullets = this.physics.add.group();
                 powerups = this.physics.add.group();
 
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
+                timerText = this.add.text(10, 40, "Time: 15", { fontSize: "24px", fill: "#fff" });
 
                 this.spawnEnemies();
+                this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
+
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
-                this.physics.add.overlap(bullets, powerups, this.collectPowerup, null, this);
+                this.physics.add.overlap(enemyBullets, player, this.hitPlayer, null, this);
                 this.physics.add.overlap(player, powerups, this.collectPowerup, null, this);
+
+                this.scale.startFullscreen();
             };
 
             this.update = function(time) {
-                background.tilePositionY -= 2; // ทำให้พื้นหลังเลื่อนลงเรื่อยๆ
+                background.tilePositionY -= 2;
 
-                if (cursors.left.isDown) player.setVelocityX(-200);
-                else if (cursors.right.isDown) player.setVelocityX(200);
+                if (cursors.left.isDown) player.setVelocityX(-300);
+                else if (cursors.right.isDown) player.setVelocityX(300);
                 else player.setVelocityX(0);
 
                 if (cursors.space.isDown && time > lastFired) {
                     let bullet = bullets.get(player.x, player.y - 20);
                     if (bullet) {
-                        bullet.setActive(true).setVisible(true).setVelocityY(-300);
+                        bullet.setActive(true).setVisible(true).setVelocityY(-400);
                         lastFired = time + 200;
                     }
                 }
 
-                if (enemies.countActive() === 0 && !bossAlive) this.nextLevel();
+                if (time > enemyFireTime) {
+                    this.enemyShoot();
+                    enemyFireTime = time + 1000;
+                }
+
+                if (timeLeft <= 0 && !bossAlive) this.nextLevel();
             };
 
             this.spawnEnemies = function() {
-                for (let i = 0; i < level * 2 + 3; i++) {
-                    let enemy = enemies.create(100 + i * 100, 100, "enemy").setScale(0.5);
-                    enemy.setVelocityY(50 + level * 10);
+                for (let i = 0; i < 5; i++) {
+                    let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
+                    enemy.setVelocityY(50);
                 }
+                this.time.addEvent({ delay: 2000, callback: this.spawnEnemies, callbackScope: this, loop: true });
             };
 
             this.nextLevel = function() {
                 level++;
+                timeLeft = 15;
                 if (level === 3) this.spawnBoss();
-                else this.spawnEnemies();
             };
 
             this.spawnBoss = function() {
-                boss = this.physics.add.sprite(400, 100, "boss").setScale(1.2);
+                boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
                 boss.setCollideWorldBounds(true).setVelocityX(100);
                 this.physics.add.collider(bullets, boss, this.hitBoss, null, this);
                 bossAlive = true;
             };
 
+            this.enemyShoot = function() {
+                enemies.children.iterate(function(enemy) {
+                    if (Phaser.Math.Between(0, 100) > 70) {
+                        let bullet = enemyBullets.create(enemy.x, enemy.y + 20, "enemyBullet");
+                        bullet.setVelocityY(200);
+                    }
+                });
+            };
+
             this.hitBoss = function(bullet) {
                 bullet.destroy();
                 bossHealth--;
-                score += 50; // ได้คะแนนเมื่อยิงบอส
+                score += 50;
                 scoreText.setText("Score: " + score);
                 if (bossHealth <= 0) {
                     boss.destroy();
                     bossAlive = false;
-                    this.add.text(300, 250, "You Win!", { fontSize: "40px", fill: "#fff" });
+                    this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2, "You Win!", { fontSize: "40px", fill: "#fff" });
                 }
             };
 
             this.destroyEnemy = function(bullet, enemy) {
                 bullet.destroy();
                 enemy.destroy();
-                score += 10; // ได้คะแนนเมื่อยิงศัตรู
+                score += 10;
                 scoreText.setText("Score: " + score);
                 if (Math.random() > 0.8) this.spawnPowerup(enemy.x, enemy.y);
             };
@@ -125,6 +144,17 @@
             this.collectPowerup = function(player, powerup) {
                 powerup.destroy();
                 bullets.maxSize += 5;
+            };
+
+            this.hitPlayer = function(player, bullet) {
+                bullet.destroy();
+                score -= 5;
+                scoreText.setText("Score: " + score);
+            };
+
+            this.updateTimer = function() {
+                timeLeft--;
+                timerText.setText("Time: " + timeLeft);
             };
         }
     </script>
