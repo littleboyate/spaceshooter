@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed Bullets & Boss Timer</title>
+    <title>Space Shooter - Final Version</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -24,9 +24,10 @@
         function GameScene() {
             let player, cursors, bullets, enemies, enemyBullets, boss;
             let lastFired = 0, enemyFireTime = 0, bulletCount = 100;
-            let level = 1, score = 0, timeLeft = 15;
+            let level = 1, score = 0, timeLeft = 46;
             let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
             let background, spawnEnemyTimer, gameOver = false;
+            let resetButton;
 
             this.preload = function() {
                 this.load.image("player", "https://i.imgur.com/2KbpBzI.png");
@@ -49,7 +50,7 @@
                 enemyBullets = this.physics.add.group();
 
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
-                timerText = this.add.text(10, 40, "Time: 15", { fontSize: "24px", fill: "#fff" });
+                timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
                 bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
                 this.spawnEnemies();
@@ -88,11 +89,9 @@
                     enemyFireTime = time + 1000;
                 }
 
-                if (timeLeft <= 0 && bossAlive) {
+                if (timeLeft <= 0 || (bossAlive && bossHealth <= 0)) {
                     this.endGame();
                 }
-
-                if (timeLeft <= 0 && !bossAlive) this.nextLevel();
             };
 
             this.spawnEnemies = function() {
@@ -104,16 +103,14 @@
 
             this.nextLevel = function() {
                 level++;
-                timeLeft = 15;
-
                 if (level === 3) {
                     this.spawnBoss();
                 }
             };
 
             this.spawnBoss = function() {
-                spawnEnemyTimer.remove(); // หยุดเกิดศัตรูเมื่อถึงด่านบอส
-                enemies.clear(true, true); // ลบศัตรูทั้งหมด
+                spawnEnemyTimer.remove(); 
+                enemies.clear(true, true); 
 
                 boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
                 boss.setCollideWorldBounds(true).setVelocityX(100);
@@ -171,6 +168,12 @@
                 this.physics.pause();
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2 + 50, "Final Score: " + score, { fontSize: "24px", fill: "#fff" });
+
+                resetButton = this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 100, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
+                    .setInteractive()
+                    .on('pointerdown', () => {
+                        location.reload();
+                    });
             };
         }
     </script>
