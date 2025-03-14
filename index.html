@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed Shooting & Enemy Spawn</title>
+    <title>Space Shooter - Fixed Bullet Issue</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -23,19 +23,18 @@
 
         function GameScene() {
             let player, cursors, bullets, enemies, boss, explosions, background;
-            let bulletCount = 100, level = 1, score = 0, timeLeft = 46, bossHealth = 20;
-            let bossAlive = false, gameOver = false, lastShotTime = 0;
+            let bulletCount = 100, lastShotTime = 0, level = 1, score = 0, timeLeft = 46, bossHealth = 20;
+            let bossAlive = false, gameOver = false;
             let scoreText, timerText, bulletText, resetButton;
-            let maxEnemies = 10, enemySpawnInterval = 2000; // 🔥 ปรับจำนวนและความเร็วศัตรู
-
+            let maxEnemies = 10, enemySpawnInterval = 2000; 
             let ranking = [];
 
             this.preload = function() {
-                this.load.image("player", "assets/player.png");
+                this.load.image("player", "player.png");
                 this.load.image("bullet", "assets/bullet.png");
                 this.load.image("enemy", "assets/enemy.png");
                 this.load.image("boss", "assets/boss.png");
-                this.load.image("background", "assets/background.jpg");
+                this.load.image("background", "bg.png");
                 this.load.spritesheet("explosion", "assets/explosion.png", { frameWidth: 64, frameHeight: 64 });
             };
 
@@ -48,7 +47,7 @@
 
                 cursors = this.input.keyboard.createCursorKeys();
                 bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
-                enemies = this.physics.add.group({ maxSize: maxEnemies }); // 🔥 จำกัดจำนวนศัตรูในฉาก
+                enemies = this.physics.add.group({ maxSize: maxEnemies });
                 explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
 
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
@@ -56,7 +55,7 @@
                 bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
 
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
-                this.time.addEvent({ delay: enemySpawnInterval, callback: this.spawnEnemies, callbackScope: this, loop: true }); // 🔥 ปรับเวลาศัตรูเกิด
+                this.time.addEvent({ delay: enemySpawnInterval, callback: this.spawnEnemies, callbackScope: this, loop: true });
 
                 this.anims.create({
                     key: "explode",
@@ -66,6 +65,20 @@
                 });
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
+                this.physics.add.overlap(bullets, boss, this.hitBoss, null, this);
+
+                // 🔥 กำจัดกระสุนที่พ้นขอบจอเพื่อป้องกันเกมค้าง
+                this.physics.world.setBoundsCollision(true, true, true, false);
+                bullets.children.iterate((bullet) => {
+                    bullet.setCollideWorldBounds(true);
+                    bullet.body.onWorldBounds = true;
+                });
+
+                this.physics.world.on("worldbounds", function(body) {
+                    if (body.gameObject && body.gameObject.texture.key === "bullet") {
+                        body.gameObject.destroy();
+                    }
+                });
 
                 this.scale.startFullscreen();
             };
@@ -79,14 +92,14 @@
                 else if (cursors.right.isDown) player.setVelocityX(300);
                 else player.setVelocityX(0);
 
-                if (cursors.space.isDown && time > lastShotTime + 300 && bulletCount > 0) { // 🔥 เพิ่ม cooldown 300ms
+                if (cursors.space.isDown && time > lastShotTime + 300 && bulletCount > 0) {
                     let bullet = bullets.get();
                     if (bullet) {
                         bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
                         bulletCount--;
                         bulletText.setText("Bullets: " + bulletCount);
-                        lastShotTime = time; // อัปเดตเวลายิงล่าสุด
+                        lastShotTime = time;
                     }
                 }
 
@@ -96,7 +109,7 @@
             };
 
             this.spawnEnemies = function() {
-                if (level < 3 && enemies.countActive(true) < maxEnemies) { // 🔥 ตรวจสอบว่าศัตรูยังไม่เกินจำนวนที่กำหนด
+                if (level < 3 && enemies.countActive(true) < maxEnemies) {
                     let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
                     enemy.setVelocityY(50);
                 }
@@ -104,10 +117,8 @@
 
             this.spawnBoss = function() {
                 enemies.clear(true, true);
-
                 boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
                 boss.setCollideWorldBounds(true).setVelocityX(100);
-                this.physics.add.collider(bullets, boss, this.hitBoss, null, this);
                 bossAlive = true;
             };
 
@@ -125,7 +136,7 @@
                 }
             };
 
-            this.hitBoss = function(bullet) {
+            this.hitBoss = function(bullet, boss) {
                 bullet.destroy();
                 bossHealth--;
                 score += 50;
