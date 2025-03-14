@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Boss & Explosion</title>
+    <title>Space Shooter - Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -23,32 +23,29 @@
 
         function GameScene() {
             let player, cursors, bullets, enemies, enemyBullets, boss, explosions;
-            let lastFired = 0, enemyFireTime = 0, bulletCount = 100;
+            let lastFired = 0, bulletCount = 100;
             let level = 1, score = 0, timeLeft = 46;
             let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
             let background, spawnEnemyTimer, gameOver = false;
             let resetButton;
 
             this.preload = function() {
-                // เปลี่ยนรูปต่างๆ ได้ที่นี่
-                this.load.image("player", "https://img2.pic.in.th/pic/png-transparent-computer-icons-rocket-flat-design-business-rocket-spacecraft-service-logo-thumbnail-removebg-preview.png"); // เปลี่ยนเป็นรูปยานผู้เล่น
-                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png"); // เปลี่ยนเป็นรูปกระสุน
-                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png"); // เปลี่ยนเป็นรูปศัตรู
-                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png"); // เปลี่ยนเป็นรูปบอส
-                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png"); // เปลี่ยนเป็นกระสุนศัตรู
-                this.load.image("background", "https://png.pngtree.com/background/20220714/original/pngtree-black-pentagram-shading-background-picture-image_1614394.jpg"); // เปลี่ยนเป็นพื้นหลังอวกาศ
-                this.load.spritesheet("explosion", "https://i.imgur.com/dzBwojP.png", { frameWidth: 64, frameHeight: 64 }); // เอฟเฟคระเบิด
+                // โหลดรูปภาพ
+                this.load.image("player", "https://i.imgur.com/2KbpBzI.png");
+                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
+                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
+                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
+                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png");
+                this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg");
+                this.load.spritesheet("explosion", "https://i.imgur.com/dzBwojP.png", { frameWidth: 64, frameHeight: 64 });
             };
 
             this.create = function() {
-                // พื้นหลังที่เลื่อนลง
                 background = this.add.tileSprite(window.innerWidth / 2, window.innerHeight / 2, window.innerWidth, window.innerHeight, "background");
 
-                // ผู้เล่น
                 player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
                 player.setCollideWorldBounds(true);
 
-                // คีย์บอร์ดควบคุม
                 cursors = this.input.keyboard.createCursorKeys();
                 bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
                 enemies = this.physics.add.group();
@@ -60,13 +57,10 @@
                 timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
                 bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
-                // ศัตรูเกิดทุก 1 วินาที
                 spawnEnemyTimer = this.time.addEvent({ delay: 1000, callback: this.spawnEnemies, callbackScope: this, loop: true });
 
-                // นับเวลาถอยหลัง
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
 
-                // ระบบระเบิด
                 this.anims.create({
                     key: "explode",
                     frames: this.anims.generateFrameNumbers("explosion", { start: 0, end: 7 }),
@@ -100,12 +94,7 @@
                     }
                 }
 
-                if (time > enemyFireTime) {
-                    this.enemyShoot();
-                    enemyFireTime = time + 1000;
-                }
-
-                if ((bossAlive && bossHealth <= 0) || timeLeft <= 0) {
+                if (timeLeft <= 0 || (bossAlive && bossHealth <= 0)) {
                     this.endGame();
                 }
             };
@@ -118,8 +107,8 @@
             };
 
             this.spawnBoss = function() {
-                spawnEnemyTimer.remove(); 
-                enemies.clear(true, true); 
+                spawnEnemyTimer.remove();
+                enemies.clear(true, true);
 
                 boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
                 boss.setCollideWorldBounds(true).setVelocityX(100);
@@ -133,7 +122,7 @@
                 score += 10;
                 scoreText.setText("Score: " + score);
 
-                let explosion = explosions.get(enemy.x, enemy.y);
+                let explosion = explosions.create(enemy.x, enemy.y, "explosion");
                 if (explosion) {
                     explosion.setActive(true);
                     explosion.setVisible(true);
@@ -162,6 +151,21 @@
                     .on('pointerdown', () => {
                         location.reload();
                     });
+            };
+
+            this.updateTimer = function() {
+                if (gameOver) return;
+
+                timeLeft--;
+                timerText.setText("Time: " + timeLeft);
+
+                if (timeLeft === 30) {
+                    this.spawnBoss();
+                }
+
+                if (timeLeft <= 0) {
+                    this.endGame();
+                }
             };
         }
     </script>
