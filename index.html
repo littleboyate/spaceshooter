@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed Bullet Collision</title>
+    <title>Space Shooter - Fully Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -23,10 +23,10 @@
 
         function GameScene() {
             let player, cursors, bullets, enemies, boss, explosions, background;
-            let bulletCount = 100, lastShotTime = 0, level = 1, score = 0, timeLeft = 46, bossHealth = 20;
+            let bulletCount = 100, lastShotTime = 0, score = 0, timeLeft = 46, bossHealth = 20;
             let bossAlive = false, gameOver = false;
             let scoreText, timerText, bulletText, resetButton;
-            let maxEnemies = 10, enemySpawnInterval = 2000; 
+            let maxEnemies = 10, enemySpawnInterval = 2000;
             let ranking = [];
 
             this.preload = function() {
@@ -46,13 +46,13 @@
                 player.setCollideWorldBounds(true);
 
                 cursors = this.input.keyboard.createCursorKeys();
-                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
+                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100, runChildUpdate: true });
                 enemies = this.physics.add.group({ maxSize: maxEnemies });
                 explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
 
-                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
-                timerText = this.add.text(10, 40, "Time: 46", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
-                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
+                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
+                timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
+                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
                 this.time.addEvent({ delay: enemySpawnInterval, callback: this.spawnEnemies, callbackScope: this, loop: true });
@@ -67,7 +67,7 @@
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(bullets, boss, this.hitBoss, null, this);
 
-                // 🔥 ลบกระสุนที่พ้นขอบจอ
+                // 🔥 ทำให้กระสุนหายไปเมื่อออกจากขอบจอ
                 this.physics.world.on("worldbounds", function(body) {
                     if (body.gameObject && body.gameObject.texture.key === "bullet") {
                         body.gameObject.destroy();
@@ -87,12 +87,11 @@
                 else player.setVelocityX(0);
 
                 if (cursors.space.isDown && time > lastShotTime + 300 && bulletCount > 0) {
-                    let bullet = bullets.get();
+                    let bullet = bullets.create(player.x, player.y - 20, "bullet");
                     if (bullet) {
-                        bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
+                        bullet.body.setCollideWorldBounds(true);
                         bullet.body.onWorldBounds = true;
-                        bullet.setCollideWorldBounds(true);
                         bulletCount--;
                         bulletText.setText("Bullets: " + bulletCount);
                         lastShotTime = time;
@@ -105,7 +104,7 @@
             };
 
             this.spawnEnemies = function() {
-                if (level < 3 && enemies.countActive(true) < maxEnemies) {
+                if (enemies.countActive(true) < maxEnemies) {
                     let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
                     enemy.setVelocityY(50);
                 }
@@ -119,32 +118,32 @@
             };
 
             this.destroyEnemy = function(bullet, enemy) {
-                if (bullet.active && enemy.active) { // 🔥 ตรวจสอบว่าทั้งสองวัตถุยังอยู่
-                    bullet.destroy();
-                    enemy.destroy();
-                    score += 10;
-                    scoreText.setText("Score: " + score);
+                if (!bullet.active || !enemy.active) return; // 🔥 ป้องกันเกมค้าง
 
-                    let explosion = explosions.create(enemy.x, enemy.y, "explosion");
-                    if (explosion) {
-                        explosion.setActive(true);
-                        explosion.setVisible(true);
-                        explosion.play("explode");
-                    }
+                bullet.destroy();
+                enemy.destroy();
+                score += 10;
+                scoreText.setText("Score: " + score);
+
+                let explosion = explosions.create(enemy.x, enemy.y, "explosion");
+                if (explosion) {
+                    explosion.setActive(true);
+                    explosion.setVisible(true);
+                    explosion.play("explode");
                 }
             };
 
             this.hitBoss = function(bullet, boss) {
-                if (bullet.active && boss.active) { // 🔥 ตรวจสอบว่าทั้งสองวัตถุยังอยู่
-                    bullet.destroy();
-                    bossHealth--;
-                    score += 50;
-                    scoreText.setText("Score: " + score);
-                    if (bossHealth <= 0) {
-                        boss.destroy();
-                        bossAlive = false;
-                        this.endGame();
-                    }
+                if (!bullet.active || !boss.active) return; // 🔥 ป้องกันเกมค้าง
+
+                bullet.destroy();
+                bossHealth--;
+                score += 50;
+                scoreText.setText("Score: " + score);
+                if (bossHealth <= 0) {
+                    boss.destroy();
+                    bossAlive = false;
+                    this.endGame();
                 }
             };
 
