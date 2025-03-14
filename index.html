@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter</title>
+    <title>Epic Space Shooter</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -12,74 +12,111 @@
             type: Phaser.AUTO,
             width: 800,
             height: 600,
-            scene: {
-                preload: preload,
-                create: create,
-                update: update
-            },
+            scene: [GameScene],
             physics: {
                 default: "arcade",
-                arcade: {
-                    debug: false
-                }
+                arcade: { debug: false }
             }
         };
 
         const game = new Phaser.Game(config);
-        let player;
-        let cursors;
-        let bullets;
-        let enemies;
-        let lastFired = 0;
 
-        function preload() {
-            this.load.image("player", "https://i.imgur.com/2gM2U9H.png"); // โหลดรูปยาน
-            this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png"); // โหลดรูปกระสุน
-            this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png"); // โหลดศัตรู
-        }
+        function GameScene() {
+            let player, cursors, bullets, enemies, powerups, boss;
+            let lastFired = 0;
+            let level = 1;
+            let score = 0;
+            let bossHealth = 20;
+            let bossAlive = false;
 
-        function create() {
-            player = this.physics.add.sprite(400, 500, "player").setScale(0.5);
-            player.setCollideWorldBounds(true);
-            cursors = this.input.keyboard.createCursorKeys();
+            this.preload = function() {
+                this.load.image("player", "https://i.imgur.com/2gM2U9H.png");
+                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
+                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
+                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
+                this.load.image("powerup", "https://i.imgur.com/7ZR4ciT.png");
+                this.load.image("background", "https://i.imgur.com/7Z3j6GD.png");
+            };
 
-            bullets = this.physics.add.group({
-                defaultKey: "bullet",
-                maxSize: 10
-            });
+            this.create = function() {
+                this.add.tileSprite(400, 300, 800, 600, "background");
 
-            enemies = this.physics.add.group();
-            for (let i = 0; i < 5; i++) {
-                let enemy = enemies.create(100 + i * 150, 100, "enemy").setScale(0.5);
-                enemy.setVelocityY(50);
-            }
+                player = this.physics.add.sprite(400, 500, "player").setScale(0.5);
+                player.setCollideWorldBounds(true);
 
-            this.physics.add.overlap(bullets, enemies, destroyEnemy, null, this);
-        }
+                cursors = this.input.keyboard.createCursorKeys();
+                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 10 });
+                enemies = this.physics.add.group();
+                powerups = this.physics.add.group();
 
-        function update(time) {
-            if (cursors.left.isDown) {
-                player.setVelocityX(-200);
-            } else if (cursors.right.isDown) {
-                player.setVelocityX(200);
-            } else {
-                player.setVelocityX(0);
-            }
+                this.spawnEnemies();
+                this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
+                this.physics.add.overlap(bullets, powerups, this.collectPowerup, null, this);
+                this.physics.add.overlap(player, powerups, this.collectPowerup, null, this);
+            };
 
-            if (cursors.space.isDown && time > lastFired) {
-                let bullet = bullets.get(player.x, player.y - 20);
-                if (bullet) {
-                    bullet.setActive(true);
-                    bullet.setVisible(true);
-                    bullet.setVelocityY(-300);
-                    lastFired = time + 200;
+            this.update = function(time) {
+                if (cursors.left.isDown) player.setVelocityX(-200);
+                else if (cursors.right.isDown) player.setVelocityX(200);
+                else player.setVelocityX(0);
+
+                if (cursors.space.isDown && time > lastFired) {
+                    let bullet = bullets.get(player.x, player.y - 20);
+                    if (bullet) {
+                        bullet.setActive(true).setVisible(true).setVelocityY(-300);
+                        lastFired = time + 200;
+                    }
                 }
-            }
-        }
 
-        function destroyEnemy(bullet, enemy) {
-            bullet.destroy();
-            enemy.destroy();
+                if (enemies.countActive() === 0 && !bossAlive) this.nextLevel();
+            };
+
+            this.spawnEnemies = function() {
+                for (let i = 0; i < level * 2 + 3; i++) {
+                    let enemy = enemies.create(100 + i * 100, 100, "enemy").setScale(0.5);
+                    enemy.setVelocityY(50 + level * 10);
+                }
+            };
+
+            this.nextLevel = function() {
+                level++;
+                if (level === 3) this.spawnBoss();
+                else this.spawnEnemies();
+            };
+
+            this.spawnBoss = function() {
+                boss = this.physics.add.sprite(400, 100, "boss").setScale(1.2);
+                boss.setCollideWorldBounds(true).setVelocityX(100);
+                this.physics.add.collider(bullets, boss, this.hitBoss, null, this);
+                bossAlive = true;
+            };
+
+            this.hitBoss = function(bullet) {
+                bullet.destroy();
+                bossHealth--;
+                if (bossHealth <= 0) {
+                    boss.destroy();
+                    bossAlive = false;
+                    this.add.text(300, 250, "You Win!", { fontSize: "40px", fill: "#fff" });
+                }
+            };
+
+            this.destroyEnemy = function(bullet, enemy) {
+                bullet.destroy();
+                enemy.destroy();
+                score += 10;
+                if (Math.random() > 0.8) this.spawnPowerup(enemy.x, enemy.y);
+            };
+
+            this.spawnPowerup = function(x, y) {
+                let powerup = powerups.create(x, y, "powerup");
+                powerup.setVelocityY(100);
+            };
+
+            this.collectPowerup = function(player, powerup) {
+                powerup.destroy();
+                bullets.maxSize += 5;
+            };
         }
     </script>
 </body>
