@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed Bullet Issue</title>
+    <title>Space Shooter - Fixed Bullet Collision</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -67,13 +67,7 @@
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(bullets, boss, this.hitBoss, null, this);
 
-                // 🔥 กำจัดกระสุนที่พ้นขอบจอเพื่อป้องกันเกมค้าง
-                this.physics.world.setBoundsCollision(true, true, true, false);
-                bullets.children.iterate((bullet) => {
-                    bullet.setCollideWorldBounds(true);
-                    bullet.body.onWorldBounds = true;
-                });
-
+                // 🔥 ลบกระสุนที่พ้นขอบจอ
                 this.physics.world.on("worldbounds", function(body) {
                     if (body.gameObject && body.gameObject.texture.key === "bullet") {
                         body.gameObject.destroy();
@@ -97,6 +91,8 @@
                     if (bullet) {
                         bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
+                        bullet.body.onWorldBounds = true;
+                        bullet.setCollideWorldBounds(true);
                         bulletCount--;
                         bulletText.setText("Bullets: " + bulletCount);
                         lastShotTime = time;
@@ -123,28 +119,32 @@
             };
 
             this.destroyEnemy = function(bullet, enemy) {
-                bullet.destroy();
-                enemy.destroy();
-                score += 10;
-                scoreText.setText("Score: " + score);
+                if (bullet.active && enemy.active) { // 🔥 ตรวจสอบว่าทั้งสองวัตถุยังอยู่
+                    bullet.destroy();
+                    enemy.destroy();
+                    score += 10;
+                    scoreText.setText("Score: " + score);
 
-                let explosion = explosions.create(enemy.x, enemy.y, "explosion");
-                if (explosion) {
-                    explosion.setActive(true);
-                    explosion.setVisible(true);
-                    explosion.play("explode");
+                    let explosion = explosions.create(enemy.x, enemy.y, "explosion");
+                    if (explosion) {
+                        explosion.setActive(true);
+                        explosion.setVisible(true);
+                        explosion.play("explode");
+                    }
                 }
             };
 
             this.hitBoss = function(bullet, boss) {
-                bullet.destroy();
-                bossHealth--;
-                score += 50;
-                scoreText.setText("Score: " + score);
-                if (bossHealth <= 0) {
-                    boss.destroy();
-                    bossAlive = false;
-                    this.endGame();
+                if (bullet.active && boss.active) { // 🔥 ตรวจสอบว่าทั้งสองวัตถุยังอยู่
+                    bullet.destroy();
+                    bossHealth--;
+                    score += 50;
+                    scoreText.setText("Score: " + score);
+                    if (bossHealth <= 0) {
+                        boss.destroy();
+                        bossAlive = false;
+                        this.endGame();
+                    }
                 }
             };
 
