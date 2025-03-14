@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed</title>
+    <title>Space Shooter - Full Screen Background</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -22,26 +22,27 @@
         const game = new Phaser.Game(config);
 
         function GameScene() {
-            let player, cursors, bullets, enemies, enemyBullets, boss, explosions;
-            let lastFired = 0, bulletCount = 100;
-            let level = 1, score = 0, timeLeft = 46;
-            let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
-            let background, spawnEnemyTimer, gameOver = false;
-            let resetButton;
+            let player, cursors, bullets, enemies, boss, explosions, background;
+            let bulletCount = 100, level = 1, score = 0, timeLeft = 46, bossHealth = 20;
+            let bossAlive = false, gameOver = false;
+            let scoreText, timerText, bulletText, resetButton;
+            let enemyCount = 5; // จำนวนศัตรูเริ่มต้น
+            let ranking = [];
 
             this.preload = function() {
-                // โหลดรูปภาพ
-                this.load.image("player", "player.png");
-                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
-                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
-                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
-                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png");
-                this.load.image("background", "bg.png");
-                this.load.spritesheet("explosion", "https://i.imgur.com/dzBwojP.png", { frameWidth: 64, frameHeight: 64 });
+                // โหลดรูปจากโฟลเดอร์ assets
+                this.load.image("player", "assets/player.png");
+                this.load.image("bullet", "assets/bullet.png");
+                this.load.image("enemy", "assets/enemy.png");
+                this.load.image("boss", "assets/boss.png");
+                this.load.image("background", "assets/background.jpg");
+                this.load.spritesheet("explosion", "assets/explosion.png", { frameWidth: 64, frameHeight: 64 });
             };
 
             this.create = function() {
-                background = this.add.tileSprite(window.innerWidth / 2, window.innerHeight / 2, window.innerWidth, window.innerHeight, "background");
+                // 🔥 พื้นหลังเต็มหน้าจอและเลื่อนลง
+                background = this.add.tileSprite(0, 0, this.sys.game.config.width, this.sys.game.config.height, "background").setOrigin(0, 0);
+                background.setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
 
                 player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
                 player.setCollideWorldBounds(true);
@@ -49,17 +50,15 @@
                 cursors = this.input.keyboard.createCursorKeys();
                 bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
                 enemies = this.physics.add.group();
-                enemyBullets = this.physics.add.group();
                 explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
 
-                // UI
-                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
-                timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
-                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
-
-                spawnEnemyTimer = this.time.addEvent({ delay: 1000, callback: this.spawnEnemies, callbackScope: this, loop: true });
+                // 🔥 UI ปรับขนาดอัตโนมัติ
+                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
+                timerText = this.add.text(10, 40, "Time: 46", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
+                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: Math.floor(window.innerWidth * 0.02) + "px", fill: "#fff" });
 
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
+                this.time.addEvent({ delay: 1000, callback: this.spawnEnemies, callbackScope: this, loop: true });
 
                 this.anims.create({
                     key: "explode",
@@ -69,26 +68,25 @@
                 });
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
-                this.physics.add.overlap(enemyBullets, player, this.hitPlayer, null, this);
 
                 this.scale.startFullscreen();
             };
 
-            this.update = function(time) {
+            this.update = function() {
                 if (gameOver) return;
 
+                // 🔥 พื้นหลังเลื่อนลง
                 background.tilePositionY -= 2;
 
                 if (cursors.left.isDown) player.setVelocityX(-300);
                 else if (cursors.right.isDown) player.setVelocityX(300);
                 else player.setVelocityX(0);
 
-                if (cursors.space.isDown && time > lastFired && bulletCount > 0) {
+                if (cursors.space.isDown && bulletCount > 0) {
                     let bullet = bullets.get();
                     if (bullet) {
                         bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
-                        lastFired = time + 200;
                         bulletCount--;
                         bulletText.setText("Bullets: " + bulletCount);
                     }
@@ -101,13 +99,15 @@
 
             this.spawnEnemies = function() {
                 if (level < 3) {
-                    let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
-                    enemy.setVelocityY(50);
+                    for (let i = 0; i < enemyCount; i++) {
+                        let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
+                        enemy.setVelocityY(50);
+                    }
+                    enemyCount += 1; // 🔥 ศัตรูเพิ่มขึ้นเรื่อยๆ
                 }
             };
 
             this.spawnBoss = function() {
-                spawnEnemyTimer.remove();
                 enemies.clear(true, true);
 
                 boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
@@ -142,17 +142,6 @@
                 }
             };
 
-            this.endGame = function() {
-                gameOver = true;
-                this.physics.pause();
-                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
-                resetButton = this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 100, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
-                    .setInteractive()
-                    .on('pointerdown', () => {
-                        location.reload();
-                    });
-            };
-
             this.updateTimer = function() {
                 if (gameOver) return;
 
@@ -166,6 +155,29 @@
                 if (timeLeft <= 0) {
                     this.endGame();
                 }
+            };
+
+            this.endGame = function() {
+                gameOver = true;
+                this.physics.pause();
+
+                ranking.push(score);
+                ranking.sort((a, b) => b - a);
+                ranking = ranking.slice(0, 5);
+
+                let rankingText = "Ranking:\n";
+                ranking.forEach((s, i) => {
+                    rankingText += `${i + 1}. ${s} points\n`;
+                });
+
+                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
+                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2 + 50, rankingText, { fontSize: "20px", fill: "#fff" });
+
+                resetButton = this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 150, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
+                    .setInteractive()
+                    .on('pointerdown', () => {
+                        location.reload();
+                    });
             };
         }
     </script>
