@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Limited Bullets</title>
+    <title>Space Shooter - Fixed Bullets & Boss Timer</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -26,7 +26,7 @@
             let lastFired = 0, enemyFireTime = 0, bulletCount = 100;
             let level = 1, score = 0, timeLeft = 15;
             let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
-            let background, spawnEnemyTimer;
+            let background, spawnEnemyTimer, gameOver = false;
 
             this.preload = function() {
                 this.load.image("player", "https://i.imgur.com/2KbpBzI.png");
@@ -44,7 +44,7 @@
                 player.setCollideWorldBounds(true);
 
                 cursors = this.input.keyboard.createCursorKeys();
-                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 5 });
+                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
                 enemies = this.physics.add.group();
                 enemyBullets = this.physics.add.group();
 
@@ -64,6 +64,8 @@
             };
 
             this.update = function(time) {
+                if (gameOver) return;
+
                 background.tilePositionY -= 2;
 
                 if (cursors.left.isDown) player.setVelocityX(-300);
@@ -71,9 +73,10 @@
                 else player.setVelocityX(0);
 
                 if (cursors.space.isDown && time > lastFired && bulletCount > 0) {
-                    let bullet = bullets.get(player.x, player.y - 20);
+                    let bullet = bullets.get();
                     if (bullet) {
-                        bullet.setActive(true).setVisible(true).setVelocityY(-400);
+                        bullet.enableBody(true, player.x, player.y - 20, true, true);
+                        bullet.setVelocityY(-400);
                         lastFired = time + 200;
                         bulletCount--;
                         bulletText.setText("Bullets: " + bulletCount);
@@ -83,6 +86,10 @@
                 if (time > enemyFireTime) {
                     this.enemyShoot();
                     enemyFireTime = time + 1000;
+                }
+
+                if (timeLeft <= 0 && bossAlive) {
+                    this.endGame();
                 }
 
                 if (timeLeft <= 0 && !bossAlive) this.nextLevel();
@@ -149,13 +156,21 @@
             };
 
             this.updateTimer = function() {
+                if (gameOver) return;
+
                 timeLeft--;
                 timerText.setText("Time: " + timeLeft);
+
+                if (timeLeft <= 0) {
+                    this.endGame();
+                }
             };
 
             this.endGame = function() {
+                gameOver = true;
                 this.physics.pause();
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
+                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2 + 50, "Final Score: " + score, { fontSize: "24px", fill: "#fff" });
             };
         }
     </script>
