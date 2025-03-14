@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+</head>
+<body>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            },
+            physics: {
+                default: "arcade",
+                arcade: {
+                    debug: false
+                }
+            }
+        };
+
+        const game = new Phaser.Game(config);
+        let player;
+        let cursors;
+        let bullets;
+        let enemies;
+        let lastFired = 0;
+
+        function preload() {
+            this.load.image("player", "https://i.imgur.com/2gM2U9H.png"); // โหลดรูปยาน
+            this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png"); // โหลดรูปกระสุน
+            this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png"); // โหลดศัตรู
+        }
+
+        function create() {
+            player = this.physics.add.sprite(400, 500, "player").setScale(0.5);
+            player.setCollideWorldBounds(true);
+            cursors = this.input.keyboard.createCursorKeys();
+
+            bullets = this.physics.add.group({
+                defaultKey: "bullet",
+                maxSize: 10
+            });
+
+            enemies = this.physics.add.group();
+            for (let i = 0; i < 5; i++) {
+                let enemy = enemies.create(100 + i * 150, 100, "enemy").setScale(0.5);
+                enemy.setVelocityY(50);
+            }
+
+            this.physics.add.overlap(bullets, enemies, destroyEnemy, null, this);
+        }
+
+        function update(time) {
+            if (cursors.left.isDown) {
+                player.setVelocityX(-200);
+            } else if (cursors.right.isDown) {
+                player.setVelocityX(200);
+            } else {
+                player.setVelocityX(0);
+            }
+
+            if (cursors.space.isDown && time > lastFired) {
+                let bullet = bullets.get(player.x, player.y - 20);
+                if (bullet) {
+                    bullet.setActive(true);
+                    bullet.setVisible(true);
+                    bullet.setVelocityY(-300);
+                    lastFired = time + 200;
+                }
+            }
+        }
+
+        function destroyEnemy(bullet, enemy) {
+            bullet.destroy();
+            enemy.destroy();
+        }
+    </script>
+</body>
+</html>
