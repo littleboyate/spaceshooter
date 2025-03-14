@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Final Version</title>
+    <title>Space Shooter - Boss & Explosion</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -22,7 +22,7 @@
         const game = new Phaser.Game(config);
 
         function GameScene() {
-            let player, cursors, bullets, enemies, enemyBullets, boss;
+            let player, cursors, bullets, enemies, enemyBullets, boss, explosions;
             let lastFired = 0, enemyFireTime = 0, bulletCount = 100;
             let level = 1, score = 0, timeLeft = 46;
             let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
@@ -30,33 +30,49 @@
             let resetButton;
 
             this.preload = function() {
-                this.load.image("player", "https://i.imgur.com/2KbpBzI.png");
-                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
-                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
-                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
-                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png");
-                this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg");
+                // เปลี่ยนรูปต่างๆ ได้ที่นี่
+                this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); // เปลี่ยนเป็นรูปยานผู้เล่น
+                this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png"); // เปลี่ยนเป็นรูปกระสุน
+                this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png"); // เปลี่ยนเป็นรูปศัตรู
+                this.load.image("boss", "https://i.imgur.com/YbKXc1K.png"); // เปลี่ยนเป็นรูปบอส
+                this.load.image("enemyBullet", "https://i.imgur.com/Mx1FLkM.png"); // เปลี่ยนเป็นกระสุนศัตรู
+                this.load.image("background", "https://png.pngtree.com/background/20220714/original/pngtree-black-pentagram-shading-background-picture-image_1614394.jpg"); // เปลี่ยนเป็นพื้นหลังอวกาศ
+                this.load.spritesheet("explosion", "https://i.imgur.com/dzBwojP.png", { frameWidth: 64, frameHeight: 64 }); // เอฟเฟคระเบิด
             };
 
             this.create = function() {
+                // พื้นหลังที่เลื่อนลง
                 background = this.add.tileSprite(window.innerWidth / 2, window.innerHeight / 2, window.innerWidth, window.innerHeight, "background");
 
+                // ผู้เล่น
                 player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
                 player.setCollideWorldBounds(true);
 
+                // คีย์บอร์ดควบคุม
                 cursors = this.input.keyboard.createCursorKeys();
                 bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100 });
                 enemies = this.physics.add.group();
                 enemyBullets = this.physics.add.group();
+                explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
 
+                // UI
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
                 timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
                 bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
-                this.spawnEnemies();
+                // ศัตรูเกิดทุก 1 วินาที
                 spawnEnemyTimer = this.time.addEvent({ delay: 1000, callback: this.spawnEnemies, callbackScope: this, loop: true });
 
+                // นับเวลาถอยหลัง
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
+
+                // ระบบระเบิด
+                this.anims.create({
+                    key: "explode",
+                    frames: this.anims.generateFrameNumbers("explosion", { start: 0, end: 7 }),
+                    frameRate: 15,
+                    hideOnComplete: true
+                });
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(enemyBullets, player, this.hitPlayer, null, this);
@@ -89,7 +105,7 @@
                     enemyFireTime = time + 1000;
                 }
 
-                if (timeLeft <= 0 || (bossAlive && bossHealth <= 0)) {
+                if ((bossAlive && bossHealth <= 0) || timeLeft <= 0) {
                     this.endGame();
                 }
             };
@@ -98,13 +114,6 @@
                 if (level < 3) {
                     let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
                     enemy.setVelocityY(50);
-                }
-            };
-
-            this.nextLevel = function() {
-                level++;
-                if (level === 3) {
-                    this.spawnBoss();
                 }
             };
 
@@ -118,13 +127,18 @@
                 bossAlive = true;
             };
 
-            this.enemyShoot = function() {
-                enemies.children.iterate(function(enemy) {
-                    if (Phaser.Math.Between(0, 100) > 70) {
-                        let bullet = enemyBullets.create(enemy.x, enemy.y + 20, "enemyBullet");
-                        bullet.setVelocityY(200);
-                    }
-                });
+            this.destroyEnemy = function(bullet, enemy) {
+                bullet.destroy();
+                enemy.destroy();
+                score += 10;
+                scoreText.setText("Score: " + score);
+
+                let explosion = explosions.get(enemy.x, enemy.y);
+                if (explosion) {
+                    explosion.setActive(true);
+                    explosion.setVisible(true);
+                    explosion.play("explode");
+                }
             };
 
             this.hitBoss = function(bullet) {
@@ -139,36 +153,10 @@
                 }
             };
 
-            this.destroyEnemy = function(bullet, enemy) {
-                bullet.destroy();
-                enemy.destroy();
-                score += 10;
-                scoreText.setText("Score: " + score);
-            };
-
-            this.hitPlayer = function(player, bullet) {
-                bullet.destroy();
-                score -= 5;
-                scoreText.setText("Score: " + score);
-            };
-
-            this.updateTimer = function() {
-                if (gameOver) return;
-
-                timeLeft--;
-                timerText.setText("Time: " + timeLeft);
-
-                if (timeLeft <= 0) {
-                    this.endGame();
-                }
-            };
-
             this.endGame = function() {
                 gameOver = true;
                 this.physics.pause();
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
-                this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2 + 50, "Final Score: " + score, { fontSize: "24px", fill: "#fff" });
-
                 resetButton = this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 100, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
                     .setInteractive()
                     .on('pointerdown', () => {
