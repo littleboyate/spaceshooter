@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Epic Space Shooter</title>
+    <title>Space Shooter with Score & Background</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -26,20 +26,22 @@
             let lastFired = 0;
             let level = 1;
             let score = 0;
+            let scoreText;
             let bossHealth = 20;
             let bossAlive = false;
+            let background;
 
             this.preload = function() {
-                this.load.image("player", "https://i.imgur.com/2gM2U9H.png");
+                this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); // เปลี่ยนเป็นรูปจรวด
                 this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
                 this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
                 this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
                 this.load.image("powerup", "https://i.imgur.com/7ZR4ciT.png");
-                this.load.image("background", "https://i.imgur.com/7Z3j6GD.png");
+                this.load.image("background", "https://i.imgur.com/cM4F1u5.jpg"); // พื้นหลังอวกาศ
             };
 
             this.create = function() {
-                this.add.tileSprite(400, 300, 800, 600, "background");
+                background = this.add.tileSprite(400, 300, 800, 600, "background");
 
                 player = this.physics.add.sprite(400, 500, "player").setScale(0.5);
                 player.setCollideWorldBounds(true);
@@ -49,6 +51,8 @@
                 enemies = this.physics.add.group();
                 powerups = this.physics.add.group();
 
+                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
+
                 this.spawnEnemies();
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(bullets, powerups, this.collectPowerup, null, this);
@@ -56,6 +60,8 @@
             };
 
             this.update = function(time) {
+                background.tilePositionY -= 2; // ทำให้พื้นหลังเลื่อนลงเรื่อยๆ
+
                 if (cursors.left.isDown) player.setVelocityX(-200);
                 else if (cursors.right.isDown) player.setVelocityX(200);
                 else player.setVelocityX(0);
@@ -94,6 +100,8 @@
             this.hitBoss = function(bullet) {
                 bullet.destroy();
                 bossHealth--;
+                score += 50; // ได้คะแนนเมื่อยิงบอส
+                scoreText.setText("Score: " + score);
                 if (bossHealth <= 0) {
                     boss.destroy();
                     bossAlive = false;
@@ -104,7 +112,8 @@
             this.destroyEnemy = function(bullet, enemy) {
                 bullet.destroy();
                 enemy.destroy();
-                score += 10;
+                score += 10; // ได้คะแนนเมื่อยิงศัตรู
+                scoreText.setText("Score: " + score);
                 if (Math.random() > 0.8) this.spawnPowerup(enemy.x, enemy.y);
             };
 
