@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter Leaderboard</title>
+    <title>Space Shooter - Limited Bullets</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -23,13 +23,13 @@
 
         function GameScene() {
             let player, cursors, bullets, enemies, enemyBullets, boss;
-            let lastFired = 0, enemyFireTime = 0;
+            let lastFired = 0, enemyFireTime = 0, bulletCount = 100;
             let level = 1, score = 0, timeLeft = 15;
-            let scoreText, timerText, bossHealth = 20, bossAlive = false;
-            let background, leaderboard = [];
+            let scoreText, timerText, bulletText, bossHealth = 20, bossAlive = false;
+            let background, spawnEnemyTimer;
 
             this.preload = function() {
-                this.load.image("player", "https://i.imgur.com/2KbpBzI.png"); 
+                this.load.image("player", "https://i.imgur.com/2KbpBzI.png");
                 this.load.image("bullet", "https://i.imgur.com/b4JxHTv.png");
                 this.load.image("enemy", "https://i.imgur.com/zVqIaHZ.png");
                 this.load.image("boss", "https://i.imgur.com/YbKXc1K.png");
@@ -50,8 +50,11 @@
 
                 scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
                 timerText = this.add.text(10, 40, "Time: 15", { fontSize: "24px", fill: "#fff" });
+                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
                 this.spawnEnemies();
+                spawnEnemyTimer = this.time.addEvent({ delay: 1000, callback: this.spawnEnemies, callbackScope: this, loop: true });
+
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
@@ -67,11 +70,13 @@
                 else if (cursors.right.isDown) player.setVelocityX(300);
                 else player.setVelocityX(0);
 
-                if (cursors.space.isDown && time > lastFired) {
+                if (cursors.space.isDown && time > lastFired && bulletCount > 0) {
                     let bullet = bullets.get(player.x, player.y - 20);
                     if (bullet) {
                         bullet.setActive(true).setVisible(true).setVelocityY(-400);
                         lastFired = time + 200;
+                        bulletCount--;
+                        bulletText.setText("Bullets: " + bulletCount);
                     }
                 }
 
@@ -85,20 +90,24 @@
 
             this.spawnEnemies = function() {
                 if (level < 3) {
-                    for (let i = 0; i < 5; i++) {
-                        let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
-                        enemy.setVelocityY(50);
-                    }
+                    let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
+                    enemy.setVelocityY(50);
                 }
             };
 
             this.nextLevel = function() {
                 level++;
                 timeLeft = 15;
-                if (level === 3) this.spawnBoss();
+
+                if (level === 3) {
+                    this.spawnBoss();
+                }
             };
 
             this.spawnBoss = function() {
+                spawnEnemyTimer.remove(); // หยุดเกิดศัตรูเมื่อถึงด่านบอส
+                enemies.clear(true, true); // ลบศัตรูทั้งหมด
+
                 boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
                 boss.setCollideWorldBounds(true).setVelocityX(100);
                 this.physics.add.collider(bullets, boss, this.hitBoss, null, this);
@@ -147,23 +156,6 @@
             this.endGame = function() {
                 this.physics.pause();
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
-                
-                this.updateLeaderboard();
-            };
-
-            this.updateLeaderboard = function() {
-                leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
-                leaderboard.push(score);
-                leaderboard.sort((a, b) => b - a);
-                leaderboard = leaderboard.slice(0, 5);
-                localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
-
-                let leaderboardText = "Leaderboard:\n";
-                leaderboard.forEach((s, i) => {
-                    leaderboardText += `${i + 1}. ${s} points\n`;
-                });
-
-                this.add.text(window.innerWidth / 2 - 150, window.innerHeight / 2 + 50, leaderboardText, { fontSize: "20px", fill: "#fff" });
             };
         }
     </script>
