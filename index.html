@@ -3,59 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Final Fix</title>
+    <title>Space Shooter - Fixed Version</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
     <script>
-        const config = {
-            type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            scene: [GameScene],
-            physics: {
-                default: "arcade",
-                arcade: { debug: false }
+        class GameScene extends Phaser.Scene {
+            constructor() {
+                super({ key: "GameScene" });
             }
-        };
 
-        const game = new Phaser.Game(config);
-
-        function GameScene() {
-            let player, cursors, bullets, enemies, boss, explosions, background;
-            let bulletCount = 100, lastShotTime = 0, score = 0, timeLeft = 46, bossHealth = 20;
-            let bossAlive = false, gameOver = false;
-            let scoreText, timerText, bulletText, resetButton;
-            let maxEnemies = 10, enemySpawnInterval = 2000;
-            let ranking = [];
-
-            this.preload = function() {
-                this.load.image("player", "assets/player.png");
+            preload() {
+                this.load.image("player", "player.png");
                 this.load.image("bullet", "assets/bullet.png");
                 this.load.image("enemy", "assets/enemy.png");
                 this.load.image("boss", "assets/boss.png");
-                this.load.image("background", "assets/background.jpg");
+                this.load.image("background", "bg.png");
                 this.load.spritesheet("explosion", "assets/explosion.png", { frameWidth: 64, frameHeight: 64 });
-            };
+            }
 
-            this.create = function() {
-                background = this.add.tileSprite(0, 0, this.sys.game.config.width, this.sys.game.config.height, "background").setOrigin(0, 0);
-                background.setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
+            create() {
+                this.background = this.add.tileSprite(0, 0, this.sys.game.config.width, this.sys.game.config.height, "background").setOrigin(0, 0);
+                this.background.setDisplaySize(this.sys.game.config.width, this.sys.game.config.height);
 
-                player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
-                player.setCollideWorldBounds(true);
+                this.player = this.physics.add.sprite(window.innerWidth / 2, window.innerHeight - 100, "player").setScale(0.5);
+                this.player.setCollideWorldBounds(true);
 
-                cursors = this.input.keyboard.createCursorKeys();
-                bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100, runChildUpdate: true });
-                enemies = this.physics.add.group({ maxSize: maxEnemies });
-                explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
+                this.cursors = this.input.keyboard.createCursorKeys();
+                this.bullets = this.physics.add.group({ defaultKey: "bullet", maxSize: 100, runChildUpdate: true });
+                this.enemies = this.physics.add.group({ maxSize: 10 });
+                this.explosions = this.physics.add.group({ defaultKey: "explosion", maxSize: 20 });
 
-                scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
-                timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
-                bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
+                this.score = 0;
+                this.bulletCount = 100;
+                this.timeLeft = 46;
+                this.bossHealth = 20;
+                this.bossAlive = false;
+                this.gameOver = false;
+                this.lastShotTime = 0;
+                this.ranking = [];
+
+                this.scoreText = this.add.text(10, 10, "Score: 0", { fontSize: "24px", fill: "#fff" });
+                this.timerText = this.add.text(10, 40, "Time: 46", { fontSize: "24px", fill: "#fff" });
+                this.bulletText = this.add.text(10, 70, "Bullets: 100", { fontSize: "24px", fill: "#fff" });
 
                 this.time.addEvent({ delay: 1000, callback: this.updateTimer, callbackScope: this, loop: true });
-                this.time.addEvent({ delay: enemySpawnInterval, callback: this.spawnEnemies, callbackScope: this, loop: true });
+                this.time.addEvent({ delay: 2000, callback: this.spawnEnemies, callbackScope: this, loop: true });
 
                 this.anims.create({
                     key: "explode",
@@ -64,122 +57,148 @@
                     hideOnComplete: true
                 });
 
-                this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
-                this.physics.add.overlap(bullets, boss, this.hitBoss, null, this);
+                this.physics.add.overlap(this.bullets, this.enemies, this.destroyEnemy, null, this);
+                this.physics.add.overlap(this.bullets, this.boss, (bullet, boss) => {
+                    if (boss) this.hitBoss(bullet, boss);
+                }, null, this);
 
-                this.scale.startFullscreen();
-            };
+                // ให้กระสุนหายไปเมื่อออกจากขอบจอ
+                this.bullets.children.iterate((bullet) => {
+                    bullet.setCollideWorldBounds(true);
+                    bullet.on("worldbounds", () => bullet.destroy());
+                });
 
-            this.update = function(time) {
-                if (gameOver) return;
+                // ปุ่ม Fullscreen
+                this.fullscreenButton = this.add.text(10, 100, "Fullscreen", { fontSize: "24px", fill: "#fff", backgroundColor: "#000" })
+                    .setInteractive()
+                    .on('pointerdown', () => {
+                        if (this.scale.isFullscreen) {
+                            this.scale.stopFullscreen();
+                        } else {
+                            this.scale.startFullscreen();
+                        }
+                    });
 
-                background.tilePositionY -= 2;
+                // อัปเดตขนาดหน้าจอเมื่อ resize
+                window.addEventListener("resize", () => {
+                    this.scale.resize(window.innerWidth, window.innerHeight);
+                });
+            }
 
-                if (cursors.left.isDown) player.setVelocityX(-300);
-                else if (cursors.right.isDown) player.setVelocityX(300);
-                else player.setVelocityX(0);
+            update(time) {
+                if (this.gameOver) return;
 
-                if (cursors.space.isDown && time > lastShotTime + 300 && bulletCount > 0) {
-                    let bullet = bullets.get();
+                this.background.tilePositionY -= 2;
+
+                if (this.cursors.left.isDown) this.player.setVelocityX(-300);
+                else if (this.cursors.right.isDown) this.player.setVelocityX(300);
+                else this.player.setVelocityX(0);
+
+                if (this.cursors.space.isDown && time > this.lastShotTime + 300 && this.bulletCount > 0) {
+                    let bullet = this.bullets.create(this.player.x, this.player.y - 20, "bullet");
                     if (bullet) {
-                        bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
-                        bullet.body.setCollideWorldBounds(true);
-                        bullet.body.onWorldBounds = true;
-                        bulletCount--;
-                        bulletText.setText("Bullets: " + bulletCount);
-                        lastShotTime = time;
+                        bullet.setCollideWorldBounds(true);
+                        bullet.on("worldbounds", () => bullet.destroy());
+                        this.bulletCount--;
+                        this.bulletText.setText("Bullets: " + this.bulletCount);
+                        this.lastShotTime = time;
                     }
                 }
 
-                if (timeLeft <= 0 || (bossAlive && bossHealth <= 0)) {
+                if (this.timeLeft <= 0 || (this.bossAlive && this.bossHealth <= 0)) {
                     this.endGame();
                 }
-            };
+            }
 
-            this.spawnEnemies = function() {
-                if (enemies.countActive(true) < maxEnemies) {
-                    let enemy = enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
+            spawnEnemies() {
+                if (this.enemies.countActive(true) < 10) {
+                    let enemy = this.enemies.create(Phaser.Math.Between(100, window.innerWidth - 100), Phaser.Math.Between(50, 200), "enemy").setScale(0.5);
                     enemy.setVelocityY(50);
                 }
-            };
+            }
 
-            this.spawnBoss = function() {
-                enemies.clear(true, true);
-                boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
-                boss.setCollideWorldBounds(true).setVelocityX(100);
-                bossAlive = true;
-            };
+            spawnBoss() {
+                this.enemies.clear(true, true);
+                this.boss = this.physics.add.sprite(window.innerWidth / 2, 100, "boss").setScale(1.2);
+                this.boss.setCollideWorldBounds(true).setVelocityX(100);
+                this.bossAlive = true;
+            }
 
-            this.destroyEnemy = function(bullet, enemy) {
-                if (!bullet || !enemy || !bullet.active || !enemy.active) return; // 🔥 ป้องกันเกมค้าง
+            destroyEnemy(bullet, enemy) {
+                if (!bullet.active || !enemy.active) return;
 
-                bullet.setActive(false).setVisible(false); // ❌ ไม่ใช้ destroy() ทันที
-                enemy.setActive(false).setVisible(false);
+                bullet.destroy();
+                enemy.destroy();
+                this.score += 10;
+                this.scoreText.setText("Score: " + this.score);
 
-                score += 10;
-                scoreText.setText("Score: " + score);
-
-                let explosion = explosions.create(enemy.x, enemy.y, "explosion");
+                let explosion = this.explosions.create(enemy.x, enemy.y, "explosion");
                 if (explosion) {
                     explosion.setActive(true);
                     explosion.setVisible(true);
                     explosion.play("explode");
                 }
-            };
+            }
 
-            this.hitBoss = function(bullet, boss) {
-                if (!bullet || !boss || !bullet.active || !boss.active) return; // 🔥 ป้องกันเกมค้าง
+            hitBoss(bullet, boss) {
+                if (!bullet.active || !boss.active) return;
 
-                bullet.setActive(false).setVisible(false);
-                bossHealth--;
-                score += 50;
-                scoreText.setText("Score: " + score);
-                if (bossHealth <= 0) {
-                    boss.setActive(false).setVisible(false);
-                    bossAlive = false;
+                bullet.destroy();
+                this.bossHealth--;
+                this.score += 50;
+                this.scoreText.setText("Score: " + this.score);
+                if (this.bossHealth <= 0) {
+                    this.boss.destroy();
+                    this.bossAlive = false;
                     this.endGame();
                 }
-            };
+            }
 
-            this.updateTimer = function() {
-                if (gameOver) return;
+            updateTimer() {
+                if (this.gameOver) return;
 
-                timeLeft--;
-                timerText.setText("Time: " + timeLeft);
+                this.timeLeft--;
+                this.timerText.setText("Time: " + this.timeLeft);
 
-                if (timeLeft === 30) {
+                if (this.timeLeft === 30) {
                     this.spawnBoss();
                 }
 
-                if (timeLeft <= 0) {
+                if (this.timeLeft <= 0) {
                     this.endGame();
                 }
-            };
+            }
 
-            this.endGame = function() {
-                gameOver = true;
+            endGame() {
+                this.gameOver = true;
                 this.physics.pause();
 
-                ranking.push(score);
-                ranking.sort((a, b) => b - a);
-                ranking = ranking.slice(0, 5);
+                this.ranking.push(this.score);
+                this.ranking.sort((a, b) => b - a);
+                this.ranking = this.ranking.slice(0, 5);
 
                 let rankingText = "Ranking:\n";
-                ranking.forEach((s, i) => {
+                this.ranking.forEach((s, i) => {
                     rankingText += `${i + 1}. ${s} points\n`;
                 });
 
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2, "Game Over!", { fontSize: "40px", fill: "#fff" });
                 this.add.text(window.innerWidth / 2 - 100, window.innerHeight / 2 + 50, rankingText, { fontSize: "20px", fill: "#fff" });
 
-                resetButton = this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 150, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
+                this.add.text(window.innerWidth / 2 - 50, window.innerHeight / 2 + 150, "Restart", { fontSize: "30px", fill: "#fff", backgroundColor: "#333" })
                     .setInteractive()
-                    .on('pointerdown', () => {
-                        location.reload();
-                    });
-            };
+                    .on('pointerdown', () => location.reload());
+            }
         }
+
+        const game = new Phaser.Game({
+            type: Phaser.AUTO,
+            width: window.innerWidth,
+            height: window.innerHeight,
+            scene: [GameScene],
+            physics: { default: "arcade", arcade: { debug: false } }
+        });
     </script>
 </body>
 </html>
