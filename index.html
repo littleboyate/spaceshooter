@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fully Fixed</title>
+    <title>Space Shooter - Fixed Bullet Collision</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -30,11 +30,11 @@
             let ranking = [];
 
             this.preload = function() {
-                this.load.image("player", "player.png");
+                this.load.image("player", "assets/player.png");
                 this.load.image("bullet", "assets/bullet.png");
                 this.load.image("enemy", "assets/enemy.png");
                 this.load.image("boss", "assets/boss.png");
-                this.load.image("background", "bg.png");
+                this.load.image("background", "assets/background.jpg");
                 this.load.spritesheet("explosion", "assets/explosion.png", { frameWidth: 64, frameHeight: 64 });
             };
 
@@ -66,13 +66,6 @@
 
                 this.physics.add.overlap(bullets, enemies, this.destroyEnemy, null, this);
                 this.physics.add.overlap(bullets, boss, this.hitBoss, null, this);
-
-                // 🔥 ทำให้กระสุนหายไปเมื่อออกจากขอบจอ
-                this.physics.world.on("worldbounds", function(body) {
-                    if (body.gameObject && body.gameObject.texture.key === "bullet") {
-                        body.gameObject.destroy();
-                    }
-                });
 
                 this.scale.startFullscreen();
             };
@@ -118,7 +111,7 @@
             };
 
             this.destroyEnemy = function(bullet, enemy) {
-                if (!bullet.active || !enemy.active) return; // 🔥 ป้องกันเกมค้าง
+                if (!bullet || !enemy || !bullet.active || !enemy.active) return; // 🔥 ป้องกันเกมค้าง
 
                 bullet.destroy();
                 enemy.destroy();
@@ -134,7 +127,7 @@
             };
 
             this.hitBoss = function(bullet, boss) {
-                if (!bullet.active || !boss.active) return; // 🔥 ป้องกันเกมค้าง
+                if (!bullet || !boss || !bullet.active || !boss.active) return; // 🔥 ป้องกันเกมค้าง
 
                 bullet.destroy();
                 bossHealth--;
