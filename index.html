@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Space Shooter - Fixed Bullet Collision</title>
+    <title>Space Shooter - Final Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 </head>
 <body>
@@ -80,8 +80,9 @@
                 else player.setVelocityX(0);
 
                 if (cursors.space.isDown && time > lastShotTime + 300 && bulletCount > 0) {
-                    let bullet = bullets.create(player.x, player.y - 20, "bullet");
+                    let bullet = bullets.get();
                     if (bullet) {
+                        bullet.enableBody(true, player.x, player.y - 20, true, true);
                         bullet.setVelocityY(-400);
                         bullet.body.setCollideWorldBounds(true);
                         bullet.body.onWorldBounds = true;
@@ -113,8 +114,9 @@
             this.destroyEnemy = function(bullet, enemy) {
                 if (!bullet || !enemy || !bullet.active || !enemy.active) return; // 🔥 ป้องกันเกมค้าง
 
-                bullet.destroy();
-                enemy.destroy();
+                bullet.setActive(false).setVisible(false); // ❌ ไม่ใช้ destroy() ทันที
+                enemy.setActive(false).setVisible(false);
+
                 score += 10;
                 scoreText.setText("Score: " + score);
 
@@ -129,12 +131,12 @@
             this.hitBoss = function(bullet, boss) {
                 if (!bullet || !boss || !bullet.active || !boss.active) return; // 🔥 ป้องกันเกมค้าง
 
-                bullet.destroy();
+                bullet.setActive(false).setVisible(false);
                 bossHealth--;
                 score += 50;
                 scoreText.setText("Score: " + score);
                 if (bossHealth <= 0) {
-                    boss.destroy();
+                    boss.setActive(false).setVisible(false);
                     bossAlive = false;
                     this.endGame();
                 }
